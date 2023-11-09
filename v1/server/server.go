@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"time"
+	bolt_api "github.com/boltdb/bolt"
 	fiber "github.com/gofiber/fiber/v2"
 	fiber_cookie "github.com/gofiber/fiber/v2/middleware/encryptcookie"
 	rate_limiter "github.com/gofiber/fiber/v2/middleware/limiter"
@@ -31,6 +32,14 @@ func New( config types.ConfigFile ) ( server Server ) {
 		BodyLimit: ( 100 * 1024 * 1024 ) , // 50 megabytes
 	})
 	server.Config = config
+
+	// pre-create all necessary db buckets
+	db , _ := bolt_api.Open( config.BoltDBPath , 0600 , &bolt_api.Options{ Timeout: ( 3 * time.Second ) } )
+	defer db.Close()
+	db.Update( func( tx *bolt_api.Tx ) error {
+		tx.CreateBucketIfNotExists( []byte( "short_link_ids" ) )
+		return nil
+	})
 
 	ip_addresses := utils.GetLocalIPAddresses()
 	fmt.Println( "Server's IP Addresses === " , ip_addresses )

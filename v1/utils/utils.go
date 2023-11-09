@@ -5,6 +5,8 @@ import (
 	"time"
 	"net"
 	"fmt"
+	crypto_rand "crypto/rand"
+	"math/big"
 	"math/rand"
 	"sort"
 	"strings"
@@ -108,5 +110,18 @@ func GetNextFileSuffix() ( result string ) {
 	time_stamp := ( time.Now().UnixNano() / int64( time.Millisecond ) )
 	random_suffix := rand.Intn( 1e9 )
 	result = fmt.Sprintf( "%d-%d.jpeg" , time_stamp , random_suffix )
+	return
+}
+
+const SHORT_LINK_ALPHABET = "0123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ" // Exclude 'l', 'I'
+const SHORT_LINK_LENGTH = 7
+func GenerateShortLinkID() ( result string ) {
+	var sb strings.Builder
+	sb.Grow( SHORT_LINK_LENGTH )
+	for i := 0; i < SHORT_LINK_LENGTH; i++ {
+		num , _ := crypto_rand.Int( crypto_rand.Reader , big.NewInt( int64( len( SHORT_LINK_ALPHABET ) ) ) )
+		sb.WriteByte( SHORT_LINK_ALPHABET[ num.Int64() ] )
+	}
+	result = sb.String()
 	return
 }

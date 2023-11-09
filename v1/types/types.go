@@ -23,11 +23,9 @@ type ConfigFile struct {
 	AdminUsername string `json:"admin_username"`
 	AdminPassword string `json:"admin_password"`
 	SecretBoxKey string `json:"secret_box_key"`
-	StorageLocation string `json:"storage_location"`
-	StorageOneHotLocation string `json:"storage_one_hot_location"`
-	Redis RedisConfig `json:"redis"`
 	IPBlacklist []string `json:"ip_blacklist"`
 	RateLimitPerSecond int `json:"rate_limit_per_second"`
+	BoltDBPath string `json:"bolt_db_path"`
 }
 
 type AListResponse struct {

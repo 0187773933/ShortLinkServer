@@ -8,9 +8,11 @@ import (
 	bcrypt "golang.org/x/crypto/bcrypt"
 	// try "github.com/manucorporat/try"
 	fiber "github.com/gofiber/fiber/v2"
+	rate_limiter "github.com/gofiber/fiber/v2/middleware/limiter"
 	// uuid "github.com/satori/go.uuid"
+	bolt_api "github.com/boltdb/bolt"
 	types "github.com/0187773933/ShortLinkServer/v1/types"
-	// utils "github.com/0187773933/ShortLinkServer/v1/utils"
+	utils "github.com/0187773933/ShortLinkServer/v1/utils"
 	encryption "github.com/0187773933/encryption/v1/encryption"
 )
 
@@ -18,11 +20,30 @@ var GlobalConfig *types.ConfigFile
 
 func RegisterRoutes( fiber_app *fiber.App , config *types.ConfigFile ) {
 	GlobalConfig = config
-	fiber_app.Get( "/" , Home )
-	fiber_app.Get( "/logout" , HandleLogout )
-	fiber_app.Get( "/login" , ServeLoginPage )
-	fiber_app.Post( "/login" , HandleLogin )
+	fiber_app.Get( "/" , public_limiter , Home )
+	fiber_app.Get( "/logout" , public_limiter , HandleLogout )
+	fiber_app.Get( "/login" , public_limiter , ServeLoginPage )
+	fiber_app.Post( "/login" , public_limiter , HandleLogin )
+	fiber_app.Get( "/set" , Set )
+	fiber_app.Get( "/:short_link_id" , public_limiter , Get )
 }
+
+var public_limiter = rate_limiter.New(rate_limiter.Config{
+	Max: 3 , // set a different rate limit for this route
+	Expiration: 30 * time.Second ,
+	// your remaining configurations...
+	KeyGenerator: func( c *fiber.Ctx ) string {
+		return c.Get( "x-forwarded-for" )
+	},
+	LimitReached: func(c *fiber.Ctx) error {
+		ip_address := c.IP()
+		log_message := fmt.Sprintf( "%s === %s === %s === PUBLIC RATE LIMIT REACHED !!!" , ip_address , c.Method() , c.Path() );
+		fmt.Println( log_message )
+		c.Set( "Content-Type" , "text/html" )
+		// return c.SendString( "<html><h1>loading ...</h1><script>setTimeout(function(){ window.location.reload(1); }, 6);</script></html>" )
+		return c.SendString( "<html><h1>why</h1></html>" )
+	} ,
+})
 
 func ServeLoginPage( context *fiber.Ctx ) ( error ) {
 	return context.SendFile( "./v1/server/html/login.html" )
@@ -130,4 +151,77 @@ func Home( context *fiber.Ctx ) ( error ) {
 		"route": "/" ,
 		"result": "https://github.com/0187773933/ShortLinkServer" ,
 	})
+}
+
+func short_link_id_exists( db *bolt_api.DB , short_link_id string ) ( result bool ) {
+	db.View( func( tx *bolt_api.Tx ) error {
+		b := tx.Bucket( []byte( "short_link_ids" ) )
+		v := b.Get( []byte( short_link_id ) )
+		result = v != nil
+		return nil
+	})
+	return
+}
+func get_next_short_link_id( db *bolt_api.DB ) ( result string ) {
+	for {
+		id := utils.GenerateShortLinkID()
+		exists := short_link_id_exists( db , id )
+		if !exists {
+			return id
+		}
+		// If the ID exists, the loop continues and generates a new ID.
+	}
+	return
+}
+
+func Set( context *fiber.Ctx ) ( error ) {
+	if validate_admin_session( context ) == false { return return_error( context , "why" ) }
+	set_url := context.Query( "url" )
+	db , _ := bolt_api.Open( GlobalConfig.BoltDBPath , 0600 , &bolt_api.Options{ Timeout: ( 3 * time.Second ) } )
+	defer db.Close()
+	short_link_id := get_next_short_link_id( db )
+	db.Update( func( tx *bolt_api.Tx ) error {
+		bucket := tx.Bucket( []byte( "short_link_ids" ) )
+		bucket.Put( []byte( short_link_id ) , []byte( set_url ) )
+		return nil
+	})
+	fmt.Println( fmt.Sprintf( "Storing %s as %s" , set_url , short_link_id ) )
+	short_link := fmt.Sprintf( "%s/%s" , GlobalConfig.ServerBaseUrl , short_link_id )
+	// return context.JSON( fiber.Map{
+	// 	"route": "/set" ,
+	// 	"short_link_id": short_link_id ,
+	// 	"set_url": set_url ,
+	// 	"short_link": short_link ,
+	// 	"result": "https://github.com/0187773933/ShortLinkServer" ,
+	// })
+	context.Set( "Content-Type" , "text/html" )
+	return context.SendString( short_link )
+}
+
+
+
+func Get( context *fiber.Ctx ) ( error ) {
+	// if validate_admin_session( context ) == false { return return_error( context , "why" ) }
+	short_link_id := context.Params( "short_link_id" )
+	db , _ := bolt_api.Open( GlobalConfig.BoltDBPath , 0600 , &bolt_api.Options{ Timeout: ( 3 * time.Second ) } )
+	defer db.Close()
+	var full_url string
+	db.View( func( tx *bolt_api.Tx ) error {
+		b := tx.Bucket( []byte( "short_link_ids" ) )
+		v := b.Get( []byte( short_link_id ) )
+		if v != nil {
+			full_url = string( v )
+		}
+		return nil
+	})
+	fmt.Println( fmt.Sprintf( "%s === %s" , short_link_id , full_url ) )
+	if full_url == "" {
+		return context.JSON( fiber.Map{
+			"route": "/get" ,
+			"short_link_id": short_link_id ,
+			"full_url": full_url ,
+			"result": "https://github.com/0187773933/ShortLinkServer" ,
+		})
+	}
+	return context.Redirect( full_url )
 }
