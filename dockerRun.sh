@@ -1,5 +1,5 @@
 #!/bin/bash
-APP_NAME="public-image-upload-server"
+APP_NAME="public-shork-link-server"
 sudo docker rm -f $APP_NAME || echo ""
 #sudo docker run -it $APP_NAME
 id=$(sudo docker run -dit \

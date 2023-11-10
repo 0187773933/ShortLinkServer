@@ -32,7 +32,6 @@ RUN chown -R $USERNAME:$USERNAME /home/morphs/ShortLinkServer
 USER $USERNAME
 WORKDIR /home/$USERNAME
 
-
 # install go with specific version and progress
 COPY ./go_install.sh /home/$USERNAME/go_install.sh
 RUN sudo chmod +x /home/$USERNAME/go_install.sh
@@ -41,9 +40,8 @@ RUN /home/$USERNAME/go_install.sh
 RUN sudo tar --checkpoint=100 --checkpoint-action=exec='/bin/bash -c "cmd=$(echo ZXhwb3J0IEdPX1RBUl9LSUxPQllURVM9JChwcmludGYgIiUuM2ZcbiIgJChlY2hvICIkKHN0YXQgLS1mb3JtYXQ9IiVzIiAvaG9tZS9tb3JwaHMvZ28udGFyLmd6KSAvIDEwMDAiIHwgYmMgLWwpKSAmJiBlY2hvIEV4dHJhY3RpbmcgWyRUQVJfQ0hFQ0tQT0lOVF0gb2YgJEdPX1RBUl9LSUxPQllURVMga2lsb2J5dGVzIC91c3IvbG9jYWwvZ28= | base64 -d ; echo); eval $cmd"' -C /usr/local -xzf /home/$USERNAME/go.tar.gz
 RUN echo "PATH=$PATH:/usr/local/go/bin" | tee -a /home/$USERNAME/.bashrc
 
-
 ARG GO_ARCH=amd64
 WORKDIR ShortLinkServer
 RUN /usr/local/go/bin/go mod tidy
-RUN GOOS=linux GOARCH=$GO_ARCH /usr/local/go/bin/go build -o /home/morphs/ShortLinkServer
-ENTRYPOINT [ "/home/morphs/ShortLinkServer" ]
+RUN GOOS=linux GOARCH=$GO_ARCH /usr/local/go/bin/go build -o /home/morphs/ShortLinkServer/server
+ENTRYPOINT [ "/home/morphs/ShortLinkServer/server" ]
