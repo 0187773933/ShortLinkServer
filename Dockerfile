@@ -44,5 +44,6 @@ RUN echo "PATH=$PATH:/usr/local/go/bin" | tee -a /home/$USERNAME/.bashrc
 
 ARG GO_ARCH=amd64
 WORKDIR ShortLinkServer
-go build -o /home/morphs/ShortLinkServer
+RUN /usr/local/go/bin/go mod tidy
+RUN GOOS=linux GOARCH=$GO_ARCH /usr/local/go/bin/go build -o /home/morphs/ShortLinkServer
 ENTRYPOINT [ "/home/morphs/ShortLinkServer" ]
