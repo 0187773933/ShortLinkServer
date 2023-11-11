@@ -20,4 +20,4 @@ fi
 git add .
 git commit -m "$NextCommitNumber"
 git remote add origin git@github.com:0187773933/ShortLinkServer.git
-git push origin master
+git push origin master -f
